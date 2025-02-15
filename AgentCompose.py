@@ -57,6 +57,7 @@ def criar_musica(sentimentos):
             - Sugestão da melodia básica em notação musical simples e uma descrição do ritmo e tom, devidamente formatada.
             - Sugestão de cifras para acompanhamento instrumental, devidamente formatada.
             - Breve descrição da intenção por trás da música e do impacto que ela busca causar nos ouvintes.
+            - Cada estrofe deve ser destacado com cores diferentes e deve haver um espaço entre eles.
             
             O texto formatado deve seguir as seguintes regras:
   			1. Títulos e subtítulos devem estar em negrito, utilizando markdown. Exemplo: `**Título da Música:**`.
