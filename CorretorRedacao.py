@@ -7,100 +7,123 @@ import streamlit as st
 from crewai import Agent, Task, Crew, Process, LLM
 import json
 
-gpt4o = 'gpt-4o'
 
-llm = LLM(
+# Configurando o modelo usando a classe LLM nativa do CrewAI
+llm = LLM(    
     model="gpt-4",
     temperature=0.8
 )
 
 # Função para configurar o agente
-def criar_musica(redacao):
-    # Definindo o agente
-    agent_corretor_gramatical = Agent(
+def criar_agente_corretor():
+    return Agent(
         role="Corretor de Redação",
-        goal="Corrigir erros de ortografia, acentuação, gramática, estrutura frasal, vocabulario do texto: {redacao}.",
+        goal="Corrigir erros de ortografia, acentuação, gramática, estrutura frasal e vocabulário do texto: {redacao}.",
         verbose=True,
         memory=True,
         llm=llm,
         backstory="""
-			Você é um especialista em lingua portuguesa, com vasta experiência em correção de textos e redação de conteúdo.
-			Seu objetivo é garantir que o texto seja claro, coeso e gramaticalmente correto, mantendo a essência e a mensagem original.
-			Além disso, você deve garantir que o texto siga as normas da língua portuguesa e seja adequado ao público-alvo.
-            Você é formado em Letras e possui experiência em revisão de textos acadêmicos, literários e publicitários.
-            Você tem mestrado em Linguística e é apaixonado por línguas e culturas.
-            Desde jovem você se destacou na escrita e na correção de redações, sendo premiado em diversos concursos literários.
+            Você é um especialista em língua portuguesa, com vasta experiência em correção de textos e redação de conteúdo.
+            Seu objetivo é garantir que o texto seja claro, coeso e gramaticalmente correto, mantendo a essência e a mensagem original.
+            Você é formado em Letras, possui mestrado em Linguística e tem experiência em revisão de textos acadêmicos, literários e publicitários.
         """
     )
 
-    # Definindo a tarefa
-    correcao_texto = Task(
+# Função para criar a tarefa de correção
+def criar_tarefa_correcao(agente):
+    return Task(
         description="""
             Você irá entregar um texto revisado e corrigido, com base nas instruções fornecidas:
                         
             Instruções:
-            - Aponte os erros de ortografia, acentuação, gramática, estrutura frasal, vocabulário e coesão do texto.
-			- Garanta que o texto siga as normas da língua portuguesa e seja adequado ao público-alvo.			            
+            - Aponte os erros de ortografia, acentuação, gramática, estrutura frasal e vocabulário do texto.
+            - Garanta que o texto siga as normas da língua portuguesa e seja adequado ao público-alvo.
         """,
         expected_output="""
-            - Um texto revisado, com base nas instruções fornecidas.
-            Instruções:
-            - Texto justificado, formatado.
-            - Aponte os erros de ortografia, acentuação, gramática, estrutura frasal, vocabulário e coesão do texto e os coloque em negrito.			
-			- Garanta que o texto siga as normas da língua portuguesa e seja adequado ao público-alvo.			
-            - Escreva um bloco com o resumo da revisão realizada e justifique cada uma delas, formate o bloco com uma cor diferente.            
+            - Um texto revisado, formatado e corrigido.
+            - Erros destacados em **negrito**.
+            - Um bloco com o resumo das correções realizadas, formatado com uma cor diferente.
         """,
-        agent=agent_corretor_gramatical
+        agent=agente
     )
+
+# Função para executar a correção
+def corrigir_redacao(redacao):
+    if len(redacao) < 500:
+        return "O texto deve conter no mínimo 500 caracteres."
+
+    agente = criar_agente_corretor()
+    tarefa = criar_tarefa_correcao(agente)
 
     # Criando a tripulação
     equipe = Crew(
-        agents=[agent_corretor_gramatical],
-        tasks=[correcao_texto],
+        agents=[agente],
+        tasks=[tarefa],
         process=Process.sequential
     )
 
     # Executando a tripulação
-    result = equipe.kickoff(inputs={"redacao": redacao})
+    resultado = equipe.kickoff(inputs={"redacao": redacao})
 
-    return result
+    return resultado
 
 # Interface do Streamlit
-st.title("Corretor de Redação")
-st.write("Escreva sua redação e solicite que o Agente corrija os erros de ortografia, acentuação, gramática, estrutura frasal, vocabulário e coesão do texto.")
+st.title("📝 Corretor de Redação")
+st.write("Escreva sua redação e solicite que o Agente corrija os erros de ortografia, acentuação, gramática, estrutura frasal e vocabulário.")
 
-# Entrada do usuário
-redacao = st.text_input(
+# Entrada do usuário (múltiplas linhas)
+redacao = st.text_area(
     "Digite aqui a redação que deseja corrigir:",
-	"A redação deve conter no mínimo 500 caracteres."
+    height=200
 )
 
 # Botão para gerar a correção
 if st.button("Corrigir Redação"):
     with st.spinner("Corrigindo seu texto. Aguarde..."):
         try:
-            resultado = criar_musica(redacao)
+            resultado = corrigir_redacao(redacao)
 
-            st.success("Redação corrigida com sucesso!")
-
-            # Processar e exibir o texto formatado
-            st.markdown("### Redação Corrigida:")
-            if isinstance(resultado, str):
-                try:
-                    # Tenta converter para JSON e extrair o campo `raw`
-                    resultado_json = json.loads(resultado)
-                    texto_formatado = resultado_json.get("raw", resultado)
-                except json.JSONDecodeError:
-                    # Caso não seja JSON, trata como texto normal
-                    texto_formatado = resultado
-            elif isinstance(resultado, dict):
-                texto_formatado = resultado.get("raw", str(resultado))
+            if isinstance(resultado, str) and resultado == "O texto deve conter no mínimo 500 caracteres.":
+                st.warning(resultado)
             else:
-                texto_formatado = str(resultado)
+                st.success("✅ Redação corrigida com sucesso!")
 
-            # Exibir o texto formatado diretamente
-            st.markdown(texto_formatado)
+                # Processar e exibir o texto formatado em HTML
+                st.markdown("### ✍️ Redação Corrigida:")
+
+                if isinstance(resultado, str):
+                    try:
+                        resultado_json = json.loads(resultado)
+                        texto_formatado = resultado_json.get("raw", resultado)
+                    except json.JSONDecodeError:
+                        texto_formatado = resultado
+                elif isinstance(resultado, dict):
+                    texto_formatado = resultado.get("raw", str(resultado))
+                else:
+                    texto_formatado = str(resultado)
+
+                # Formatando o texto corrigido em HTML
+                texto_html = f"""
+                    <div style="text-align: justify; font-size: 16px; line-height: 1.6;">
+                        {texto_formatado}
+                    </div>
+                """
+
+                # Bloco de resumo estilizado
+                resumo_html = """
+                    <div style="background-color:#f0f0f0; padding:15px; border-radius:5px; margin-top:20px;">
+                        <strong>📌 Resumo das correções:</strong><br>
+                        - Ortografia e gramática corrigidas.<br>
+                        - Estrutura frasal aprimorada.<br>
+                        - Coesão e coerência reforçadas.<br>
+                    </div>
+                """
+
+                # Exibir no Streamlit com suporte a HTML
+                st.markdown(texto_html, unsafe_allow_html=True)
+                st.markdown(resumo_html, unsafe_allow_html=True)
 
         except Exception as e:
-            st.error("Ocorreu um erro ao compor a música.")
+            st.error("❌ Ocorreu um erro ao corrigir a redação.")
             st.write(str(e))
+
